@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة مالك وعلي: السلم والثعبان</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            direction: rtl;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+            background-color: white;
+        }
+        #status {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>لعبة مالك وعلي</h1>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <p id="status">دور مالك: ارمِ الزهر لتبدأ!</p>
+    <button onclick="rollDice()">رمي الزهر</button>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 40;
+        const boardSize = 10;
+        
+        // مواقع اللاعبين
+        let players = [
+            { name: "مالك", position: 1, color: "blue" },
+            { name: "علي", position: 1, color: "red" }
+        ];
+        let currentPlayerIndex = 0;
+        
+        // تعريف السلالم والثعابين
+        const ladders = {
+            3: 22,
+            15: 37,
+            45: 67,
+            28: 49
+        };
+        const snakes = {
+            27: 5,
+            40: 12,
+            87: 54,
+            95: 73
+        };
+
+        // رسم اللوحة
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // رسم الشبكة
+            for (let row = 0; row < boardSize; row++) {
+                for (let col = 0; col < boardSize; col++) {
+                    // حساب رقم المربع
+                    let num = (boardSize - row - 1) * boardSize + col + 1;
+                    if (row % 2 === 1) {
+                        num = (boardSize - row - 1) * boardSize + (boardSize - col);
+                    }
+                    
+                    // رسم المربع
+                    ctx.strokeStyle = "#333";
+                    ctx.strokeRect(col * gridSize, row * gridSize, gridSize, gridSize);
+                    
+                    // كتابة الرقم
+                    ctx.fillStyle = "black";
+                    ctx.font = "12px Arial";
+                    ctx.fillText(num, col * gridSize + 15, row * gridSize + 25);
+                }
+            }
+
+            // رسم السلالم
+            ctx.strokeStyle = "green";
+            ctx.lineWidth = 2;
+            for (let start in ladders) {
+                let end = ladders[start];
+                let startPos = getPosition(start);
+                let endPos = getPosition(end);
+                ctx.beginPath();
+                ctx.moveTo(startPos.x + gridSize / 2, startPos.y + gridSize / 2);
+                ctx.lineTo(endPos.x + gridSize / 2, endPos.y + gridSize / 2);
+                ctx.stroke();
+            }
+
+            // رسم الثعابين
+            ctx.strokeStyle = "red";
+            for (let start in snakes) {
+                let end = snakes[start];
+                let startPos = getPosition(start);
+                let endPos = getPosition(end);
+                ctx.beginPath();
+                ctx.moveTo(startPos.x + gridSize / 2, startPos.y + gridSize / 2);
+                ctx.lineTo(endPos.x + gridSize / 2, endPos.y + gridSize / 2);
+                ctx.stroke();
+            }
+
+            // رسم اللاعبين
+            players.forEach(player => {
+                let pos = getPosition(player.position);
+                ctx.fillStyle = player.color;
+                ctx.beginPath();
+                ctx.arc(pos.x + gridSize / 2, pos.y + gridSize / 2, 10, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = "10px Arial";
+                ctx.fillText(player.name[0], pos.x + gridSize / 2 - 3, pos.y + gridSize / 2 + 3);
+            });
+        }
+
+        // الحصول على إحداثيات المربع
+        function getPosition(num) {
+            num = parseInt(num);
+            let row = Math.floor((100 - num) / boardSize);
+            let col = (num - 1) % boardSize;
+            if ((boardSize - row - 1) % 2 === 1) {
+                col = boardSize - 1 - col;
+            }
+            return { x: col * gridSize, y: row * gridSize };
+        }
+
+        // رمي الزهر وتحريك اللاعب
+        function rollDice() {
+            let currentPlayer = players[currentPlayerIndex];
+            let dice = Math.floor(Math.random() * 6) + 1;
+            currentPlayer.position += dice;
+
+            // التأكد من عدم التجاوز
+            if (currentPlayer.position > 100) {
+                currentPlayer.position -= dice;
+                document.getElementById('status').innerText = `${currentPlayer.name}: رميت ${dice}، لا يمكن التحرك!`;
+                switchPlayer();
+                drawBoard();
+                return;
+            }
+
+            // التحقق من السلالم
+            if (ladders[currentPlayer.position]) {
+                let newPos = ladders[currentPlayer.position];
+                document.getElementById('status').innerText = `${currentPlayer.name}: رميت ${dice} وصعدت سلمًا إلى ${newPos}!`;
+                currentPlayer.position = newPos;
+            }
+            // التحقق من الثعابين
+            else if (snakes[currentPlayer.position]) {
+                let newPos = snakes[currentPlayer.position];
+                document.getElementById('status').innerText = `${currentPlayer.name}: رميت ${dice} ولدغك ثعبان إلى ${newPos}!`;
+                currentPlayer.position = newPos;
+            }
+            else {
+                document.getElementById('status').innerText = `${currentPlayer.name}: رميت ${dice} وتحركت إلى ${currentPlayer.position}`;
+            }
+
+            // التحقق من الفوز
+            if (currentPlayer.position === 100) {
+                document.getElementById('status').innerText = `${currentPlayer.name} فاز باللعبة! 🎉`;
+                document.querySelector('button').disabled = true;
+                drawBoard();
+                return;
+            }
+
+            // تبديل اللاعب
+            switchPlayer();
+            drawBoard();
+        }
+
+        // تبديل اللاعب
+        function switchPlayer() {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            document.getElementById('status').innerText += ` | دور ${players[currentPlayerIndex].name}`;
+        }
+
+        // تهيئة اللعبة
+        drawBoard();
+    </script>
+</body>
+</html
