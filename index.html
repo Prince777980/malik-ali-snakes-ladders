@@ -81,38 +81,26 @@
             {
                 name: "مالك",
                 pieces: [
-                    { position: 0, color: "blue", started: false },
-                    { position: 0, color: "cyan", started: false }
+                    { position: 0, color: "blue", started: false, shape: "frog" }
                 ]
             },
             {
                 name: "علي",
                 pieces: [
-                    { position: 0, color: "red", started: false },
-                    { position: 0, color: "orange", started: false }
+                    { position: 0, color: "yellow", started: false, shape: "spongebob" }
                 ]
             }
         ];
         let currentPlayerIndex = 0;
-        let currentPieceIndex = 0;
         let diceResult = 0;
         let awaitingMove = false;
 
         // تعريف السلالم والثعابين
-        const ladders = {
-            3: 22,
-            15: 37,
-            28: 49,
-            45: 67,
-            62: 83
-        };
-        const snakes = {
-            27: 5,
-            40: 12,
-            56: 34,
-            87: 54,
-            95: 73
-        };
+        const ladders = { 3: 22, 15: 37, 28: 49, 45: 67, 62: 83 };
+        const snakes = { 27: 5, 40: 12, 56: 34, 87: 54, 95: 73 };
+
+        // إضافة صوت رمي الزهر
+        const diceSound = new Audio('https://www.soundjay.com/button/sounds/button-4.mp3');
 
         // رسم اللوحة
         function drawBoard() {
@@ -126,20 +114,26 @@
                         num = (boardSize - row - 1) * boardSize + (boardSize - col);
                     }
 
-                    // خلفية المربع
                     ctx.fillStyle = (row + col) % 2 === 0 ? "#e6f3ff" : "#b3d9ff";
                     ctx.fillRect(col * gridSize, row * gridSize, gridSize, gridSize);
                     ctx.strokeStyle = "#333";
                     ctx.strokeRect(col * gridSize, row * gridSize, gridSize, gridSize);
 
-                    // كتابة الرقم
                     ctx.fillStyle = "black";
                     ctx.font = "14px Arial";
                     ctx.fillText(num, col * gridSize + 12, row * gridSize + 25);
+
+                    if (num === 50) {
+                        ctx.fillStyle = "gold";
+                        ctx.fillRect(col * gridSize + 5, row * gridSize + 5, gridSize - 10, gridSize - 10);
+                        ctx.fillStyle = "black";
+                        ctx.font = "bold 16px Arial";
+                        ctx.fillText("50", col * gridSize + 15, row * gridSize + 25);
+                    }
                 }
             }
 
-            // رسم السلالم (بشكل جذاب)
+            // رسم السلالم
             for (let start in ladders) {
                 let end = ladders[start];
                 let startPos = getPosition(start);
@@ -150,17 +144,9 @@
                 ctx.strokeStyle = "green";
                 ctx.lineWidth = 6;
                 ctx.stroke();
-
-                // إضافة تأثير السلم
-                ctx.beginPath();
-                ctx.moveTo(startPos.x + gridSize / 2 - 10, startPos.y + gridSize / 2);
-                ctx.lineTo(endPos.x + gridSize / 2 - 10, endPos.y + gridSize / 2);
-                ctx.strokeStyle = "limegreen";
-                ctx.lineWidth = 2;
-                ctx.stroke();
             }
 
-            // رسم الثعابين (بشكل جذاب)
+            // رسم الثعابين
             for (let start in snakes) {
                 let end = snakes[start];
                 let startPos = getPosition(start);
@@ -171,12 +157,6 @@
                 ctx.moveTo(startPos.x + gridSize / 2, startPos.y + gridSize / 2);
                 ctx.lineTo(endPos.x + gridSize / 2, endPos.y + gridSize / 2);
                 ctx.stroke();
-
-                // إضافة رأس الثعبان
-                ctx.fillStyle = "darkred";
-                ctx.beginPath();
-                ctx.arc(startPos.x + gridSize / 2, startPos.y + gridSize / 2, 5, 0, 2 * Math.PI);
-                ctx.fill();
             }
 
             // رسم القطع
@@ -186,7 +166,11 @@
                         let pos = getPosition(piece.position);
                         ctx.fillStyle = piece.color;
                         ctx.beginPath();
-                        ctx.arc(pos.x + gridSize / 2, pos.y + gridSize / 2, 10, 0, 2 * Math.PI);
+                        if (piece.shape === "frog") {
+                            ctx.arc(pos.x + gridSize / 2, pos.y + gridSize / 2, 10, 0, 2 * Math.PI);
+                        } else if (piece.shape === "spongebob") {
+                            ctx.fillRect(pos.x + gridSize / 2 - 10, pos.y + gridSize / 2 - 10, 20, 20);
+                        }
                         ctx.fill();
                         ctx.fillStyle = "white";
                         ctx.font = "12px Arial";
@@ -199,7 +183,7 @@
         // الحصول على إحداثيات المربع
         function getPosition(num) {
             num = parseInt(num);
-            if (num === 0) return { x: -100, y: -100 }; // خارج اللوحة
+            if (num === 0) return { x: -100, y: -100 };
             let row = Math.floor((100 - num) / boardSize);
             let col = (num - 1) % boardSize;
             if ((boardSize - row - 1) % 2 === 1) {
@@ -218,7 +202,6 @@
 
             diceCtx.fillStyle = "black";
             const dotSize = 10;
-            const offset = 25;
             if (number === 1) {
                 diceCtx.beginPath();
                 diceCtx.arc(50, 50, dotSize, 0, 2 * Math.PI);
@@ -263,15 +246,16 @@
 
         // رمي الزهر
         function rollDice() {
+            diceSound.play();
             let currentPlayer = players[currentPlayerIndex];
-            let currentPiece = currentPlayer.pieces[currentPieceIndex];
-            
+            let currentPiece = currentPlayer.pieces[0];
+
             diceResult = Math.floor(Math.random() * 6) + 1;
             drawDice(diceResult);
-            
+
             if (!currentPiece.started && diceResult !== 6) {
                 document.getElementById('status').innerText = `${currentPlayer.name}: رميت ${diceResult}، يجب رمي 6 للبدء!`;
-                switchPieceOrPlayer();
+                switchPlayer();
                 return;
             }
 
@@ -281,7 +265,7 @@
                 document.getElementById('status').innerText = `${currentPlayer.name}: رميت 6 وبدأت! انقر على المربع للتحرك.`;
                 updatePlayerStatus();
                 drawBoard();
-                switchPieceOrPlayer();
+                switchPlayer();
                 return;
             }
 
@@ -295,7 +279,7 @@
             if (!awaitingMove) return;
 
             let currentPlayer = players[currentPlayerIndex];
-            let currentPiece = currentPlayer.pieces[currentPieceIndex];
+            let currentPiece = currentPlayer.pieces[0];
 
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
@@ -316,33 +300,22 @@
                     document.getElementById('status').innerText = `${currentPlayer.name}: لا يمكن التجاوز! حاول مرة أخرى.`;
                     awaitingMove = false;
                     document.getElementById('rollDiceBtn').disabled = false;
-                    switchPieceOrPlayer();
+                    switchPlayer();
                     drawBoard();
                     return;
                 }
 
-                // التحقق من السلالم
                 if (ladders[currentPiece.position]) {
                     let newPos = ladders[currentPiece.position];
                     document.getElementById('status').innerText = `${currentPlayer.name}: صعدت سلمًا إلى ${newPos}!`;
                     currentPiece.position = newPos;
-                }
-                // التحقق من الثعابين
-                else if (snakes[currentPiece.position]) {
+                } else if (snakes[currentPiece.position]) {
                     let newPos = snakes[currentPiece.position];
                     document.getElementById('status').innerText = `${currentPlayer.name}: لدغك ثعبان إلى ${newPos}!`;
                     currentPiece.position = newPos;
                 }
 
-                // التحقق من الفوز
                 if (currentPiece.position === 100) {
-                    currentPiece.started = false; // تعطيل القطعة
-                    document.getElementById('status').innerText += ` ${currentPlayer.name} أوصل قطعة إلى النهاية!`;
-                }
-
-                // التحقق من فوز اللاعب
-                let allFinished = currentPlayer.pieces.every(piece => piece.position === 100);
-                if (allFinished) {
                     document.getElementById('status').innerText = `${currentPlayer.name} فاز باللعبة! 🎉`;
                     document.getElementById('rollDiceBtn').disabled = true;
                     drawBoard();
@@ -352,31 +325,26 @@
                 awaitingMove = false;
                 document.getElementById('rollDiceBtn').disabled = false;
                 updatePlayerStatus();
-                switchPieceOrPlayer();
+                switchPlayer();
                 drawBoard();
             } else {
                 document.getElementById('status').innerText = `انقر على المربع الصحيح (${currentPiece.position + diceResult})!`;
             }
         });
 
-        // تبديل القطعة أو اللاعب
-        function switchPieceOrPlayer() {
-            let currentPlayer = players[currentPlayerIndex];
-            currentPieceIndex = (currentPieceIndex + 1) % currentPlayer.pieces.length;
-            if (currentPieceIndex === 0) {
-                currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-            }
-            document.getElementById('status').innerText = `دور ${players[currentPlayerIndex].name} (القطعة ${currentPieceIndex + 1})`;
+        // تبديل اللاعب
+        function switchPlayer() {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            document.getElementById('status').innerText = `دور ${players[currentPlayerIndex].name}: ارمِ الزهر!`;
             drawBoard();
         }
 
         // تحديث حالة اللاعبين
         function updatePlayerStatus() {
             players.forEach(player => {
-                let status = player.pieces.map((piece, index) => {
-                    if (piece.position === 100) return `القطعة ${index + 1}: وصلت النهاية`;
-                    if (!piece.started) return `القطعة ${index + 1}: في الانتظار (يحتاج 6)`;
-                    return `القطعة ${index + 1}: في ${piece.position}`;
+                let status = player.pieces.map(piece => {
+                    if (!piece.started) return "في الانتظار (يحتاج 6)";
+                    return `في ${piece.position}`;
                 }).join(" | ");
                 document.getElementById(`${player.name.toLowerCase()}-status`).innerText = status;
             });
@@ -384,8 +352,8 @@
 
         // تهيئة اللعبة
         drawBoard();
-        drawDice(1); // الزهر في البداية
+        drawDice(1);
         updatePlayerStatus();
     </script>
 </body>
-</html>>
+</html>
