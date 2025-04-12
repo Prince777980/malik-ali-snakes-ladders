@@ -3,27 +3,34 @@
 <head>
     <title>Snack Game</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        .board { display: grid; grid-template-columns: repeat(10, 50px); grid-template-rows: repeat(10, 50px); border: 2px solid black; }
-        .cell { width: 50px; height: 50px; border: 1px solid #ccc; display: flex; justify-content: center; align-items: center; font-size: 12px; }
-        .player { width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 16px; }
-        .player1 { background-color: green; color: white; } /* سيكون صورة ضفدع */
-        .player2 { background-color: blue; color: white; } /* سيكون صورة سبونج بوب */
-        .controls { margin-top: 20px; display: flex; gap: 20px; align-items: center; }
-        .dice { width: 50px; height: 50px; border: 1px solid black; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; }
+        .board { display: grid; grid-template-columns: repeat(10, 60px); grid-template-rows: repeat(10, 60px); border: 2px solid #333; margin-top: 20px; }
+        .cell { width: 60px; height: 60px; border: 1px solid #ddd; display: flex; justify-content: center; align-items: center; font-size: 14px; background-color: #fff; }
+        .player { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; }
+        .player img { max-width: 100%; max-height: 100%; }
+        .controls { margin-top: 20px; display: flex; gap: 30px; align-items: center; }
+        .dice-container { display: flex; flex-direction: column; align-items: center; }
+        .dice { width: 60px; height: 60px; border: 1px solid #333; display: flex; justify-content: center; align-items: center; font-size: 24px; cursor: pointer; background-color: #eee; }
         #result { margin-top: 10px; font-weight: bold; }
+        .ladder-start { background-color: #aaffaa; }
+        .ladder-end { background-color: #aaffaa; }
+        .snake-head { background-color: #ffaaaa; }
+        .snake-tail { background-color: #ffaaaa; }
     </style>
 </head>
 <body>
     <h1>Snack Game</h1>
 
     <div class="board" id="gameBoard">
-        </div>
+    </div>
 
     <div class="controls">
         <div>Player 1 (Malik): <span id="player1Position">1</span></div>
         <div>Player 2 (Ali): <span id="player2Position">1</span></div>
-        <div class="dice" id="dice">🎲</div>
+        <div class="dice-container">
+            <div class="dice" id="dice">🎲</div>
+            <audio id="diceRollSound" src="dice_roll.mp3"></audio>
+        </div>
         <div id="result"></div>
     </div>
 
@@ -33,17 +40,54 @@
         const player2PositionDisplay = document.getElementById('player2Position');
         const dice = document.getElementById('dice');
         const resultDisplay = document.getElementById('result');
+        const diceRollSound = document.getElementById('diceRollSound');
 
         let player1Position = 1;
         let player2Position = 1;
         let currentPlayer = 1;
         const boardSize = 100;
 
+        const ladders = {
+            2: 38,
+            7: 14,
+            8: 31,
+            15: 26,
+            21: 42,
+            28: 84,
+            36: 44,
+            51: 67,
+            71: 91,
+            78: 98,
+            87: 94
+        };
+
+        const snakes = {
+            16: 6,
+            46: 25,
+            49: 11,
+            62: 19,
+            64: 60,
+            74: 53,
+            89: 68,
+            92: 88,
+            95: 75,
+            99: 80
+        };
+
         // إنشاء لوحة اللعبة
         for (let i = boardSize; i >= 1; i--) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             cell.textContent = i;
+            if (ladders.hasOwnProperty(i)) {
+                cell.classList.add('ladder-start');
+            } else if (Object.values(ladders).includes(i)) {
+                cell.classList.add('ladder-end');
+            } else if (snakes.hasOwnProperty(i)) {
+                cell.classList.add('snake-head');
+            } else if (Object.values(snakes).includes(i)) {
+                cell.classList.add('snake-tail');
+            }
             board.appendChild(cell);
         }
 
@@ -52,24 +96,20 @@
         function updatePlayerPosition(player, position) {
             const playerElement = document.createElement('div');
             playerElement.classList.add('player');
-            if (player === 1) {
-                playerElement.classList.add('player1');
-                playerElement.textContent = '🐸'; // هنا سيتم وضع صورة الضفدع
-                player1PositionDisplay.textContent = position;
-            } else {
-                playerElement.classList.add('player2');
-                playerElement.textContent = '🍍'; // هنا سيتم وضع صورة سبونج بوب
-                player2PositionDisplay.textContent = position;
-            }
+            playerElement.innerHTML = `<img src="${player === 1 ? 'frog.png' : 'monkey.png'}" alt="${player === 1 ? 'Frog' : 'Monkey'}">`;
 
-            // إزالة اللاعب من موقعه السابق
             const previousCell = cells[boardSize - (player === 1 ? player1Position : player2Position)];
             previousCell.innerHTML = previousCell.textContent;
 
-            // إضافة اللاعب إلى موقعه الجديد
             const currentCell = cells[boardSize - position];
             currentCell.innerHTML = '';
             currentCell.appendChild(playerElement);
+
+            if (player === 1) {
+                player1PositionDisplay.textContent = position;
+            } else {
+                player2PositionDisplay.textContent = position;
+            }
         }
 
         updatePlayerPosition(1, player1Position);
@@ -78,24 +118,61 @@
         dice.addEventListener('click', () => {
             const roll = Math.floor(Math.random() * 6) + 1;
             resultDisplay.textContent = `Player ${currentPlayer} rolled: ${roll}`;
+            diceRollSound.play();
 
+            let newPosition;
             if (currentPlayer === 1) {
-                player1Position += roll;
-                if (player1Position > boardSize) {
-                    player1Position = boardSize;
+                newPosition = player1Position + roll;
+                if (newPosition <= boardSize) {
+                    player1Position = newPosition;
+                }
+                // التعامل مع السلالم
+                if (ladders[player1Position]) {
+                    const previousPosition = player1Position;
+                    player1Position = ladders[player1Position];
+                    resultDisplay.textContent += `\nMalik found a ladder from ${previousPosition} to ${player1Position}!`;
+                    // يمكنك إضافة صوت لتسلق السلم هنا: new Audio('ladder_climb.mp3').play();
+                }
+                // التعامل مع الثعابين
+                else if (snakes[player1Position]) {
+                    const previousPosition = player1Position;
+                    player1Position = snakes[player1Position];
+                    resultDisplay.textContent += `\nMalik slid down a snake from ${previousPosition} to ${player1Position}!`;
+                    // يمكنك إضافة صوت للانزلاق على الثعبان هنا: new Audio('snake_slide.mp3').play();
                 }
                 updatePlayerPosition(1, player1Position);
                 currentPlayer = 2;
             } else {
-                player2Position += roll;
-                if (player2Position > boardSize) {
-                    player2Position = boardSize;
+                newPosition = player2Position + roll;
+                if (newPosition <= boardSize) {
+                    player2Position = newPosition;
+                }
+                // التعامل مع السلالم
+                if (ladders[player2Position]) {
+                    const previousPosition = player2Position;
+                    player2Position = ladders[player2Position];
+                    resultDisplay.textContent += `\nAli found a ladder from ${previousPosition} to ${player2Position}!`;
+                    // يمكنك إضافة صوت لتسلق السلم هنا: new Audio('ladder_climb.mp3').play();
+                }
+                // التعامل مع الثعابين
+                else if (snakes[player2Position]) {
+                    const previousPosition = player2Position;
+                    player2Position = snakes[player2Position];
+                    resultDisplay.textContent += `\nAli slid down a snake from ${previousPosition} to ${player2Position}!`;
+                    // يمكنك إضافة صوت للانزلاق على الثعبان هنا: new Audio('snake_slide.mp3').play();
                 }
                 updatePlayerPosition(2, player2Position);
                 currentPlayer = 1;
             }
 
-            // يمكنك إضافة منطق السلالم والثعابين هنا
+            // التحقق من الفوز
+            if (player1Position === boardSize) {
+                resultDisplay.textContent = "Malik Wins!";
+                dice.removeEventListener('click', arguments.callee); // إيقاف النرد
+            } else if (player2Position === boardSize) {
+                resultDisplay.textContent = "Ali Wins!";
+                dice.removeEventListener('click', arguments.callee); // إيقاف النرد
+            }
         });
     </script>
 </body>
