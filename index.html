@@ -1,179 +1,361 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Snack Game</title>
-    <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; }
-        .board { display: grid; grid-template-columns: repeat(10, 60px); grid-template-rows: repeat(10, 60px); border: 2px solid #333; margin-top: 20px; }
-        .cell { width: 60px; height: 60px; border: 1px solid #ddd; display: flex; justify-content: center; align-items: center; font-size: 14px; background-color: #fff; }
-        .player { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; }
-        .player img { max-width: 100%; max-height: 100%; }
-        .controls { margin-top: 20px; display: flex; gap: 30px; align-items: center; }
-        .dice-container { display: flex; flex-direction: column; align-items: center; }
-        .dice { width: 60px; height: 60px; border: 1px solid #333; display: flex; justify-content: center; align-items: center; font-size: 24px; cursor: pointer; background-color: #eee; }
-        #result { margin-top: 10px; font-weight: bold; }
-        .ladder-start { background-color: #aaffaa; }
-        .ladder-end { background-color: #aaffaa; }
-        .snake-head { background-color: #ffaaaa; }
-        .snake-tail { background-color: #ffaaaa; }
-    </style>
-</head>
-<body>
-    <h1>Snack Game</h1>
+import pygame
+import random
+import sys
+import os # لاستخدام مسارات الملفات بشكل صحيح
 
-    <div class="board" id="gameBoard">
-    </div>
+# --- إعدادات اللعبة الأساسية ---
+pygame.init()
+pygame.mixer.init() # لتهيئة وحدة الصوت (مهم للأصوات)
 
-    <div class="controls">
-        <div>Player 1 (Malik): <span id="player1Position">1</span></div>
-        <div>Player 2 (Ali): <span id="player2Position">1</span></div>
-        <div class="dice-container">
-            <div class="dice" id="dice">🎲</div>
-            <audio id="diceRollSound" src="dice_roll.mp3"></audio>
-        </div>
-        <div id="result"></div>
-    </div>
+# أبعاد الشاشة
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 650 # زيادة الارتفاع قليلاً لواجهة المستخدم
+BOARD_SIZE = 600 # حجم لوحة اللعب
+SQUARE_SIZE = BOARD_SIZE // 10 # حجم المربع الواحد (لوحة 10x10)
 
-    <script>
-        const board = document.getElementById('gameBoard');
-        const player1PositionDisplay = document.getElementById('player1Position');
-        const player2PositionDisplay = document.getElementById('player2Position');
-        const dice = document.getElementById('dice');
-        const resultDisplay = document.getElementById('result');
-        const diceRollSound = document.getElementById('diceRollSound');
+# الألوان
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 180, 0) # أخضر أغمق قليلاً
+BLUE = (0, 0, 200)  # أزرق أغمق قليلاً
+LIGHT_BLUE = (173, 216, 230)
+YELLOW = (255, 255, 0) # للتمييز الإضافي
 
-        let player1Position = 1;
-        let player2Position = 1;
-        let currentPlayer = 1;
-        const boardSize = 100;
+# إعداد الشاشة
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('Snack Game (لعبة السلم والثعبان الممتعة!)')
 
-        const ladders = {
-            2: 38,
-            7: 14,
-            8: 31,
-            15: 26,
-            21: 42,
-            28: 84,
-            36: 44,
-            51: 67,
-            71: 91,
-            78: 98,
-            87: 94
-        };
+# --- تحميل الموارد (الصور والأصوات) ---
+# تأكد من أن هذه الملفات موجودة في مجلد 'assets' بنفس مكان ملف الكود
+asset_folder = 'assets'
+try:
+    # صورة لوحة اللعب (ملونة وواضحة للأطفال)
+    board_img = pygame.image.load(os.path.join(asset_folder, 'board.png')).convert()
+    board_img = pygame.transform.scale(board_img, (BOARD_SIZE, BOARD_SIZE))
 
-        const snakes = {
-            16: 6,
-            46: 25,
-            49: 11,
-            62: 19,
-            64: 60,
-            74: 53,
-            89: 68,
-            92: 88,
-            95: 75,
-            99: 80
-        };
+    # صور قطع اللاعبين (كرتونية ولطيفة)
+    frog_img = pygame.image.load(os.path.join(asset_folder, 'frog.png')).convert_alpha()
+    frog_img = pygame.transform.scale(frog_img, (SQUARE_SIZE // 2 + 5, SQUARE_SIZE // 2 + 5)) # أكبر قليلاً
 
-        // إنشاء لوحة اللعبة
-        for (let i = boardSize; i >= 1; i--) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
-            cell.textContent = i;
-            if (ladders.hasOwnProperty(i)) {
-                cell.classList.add('ladder-start');
-            } else if (Object.values(ladders).includes(i)) {
-                cell.classList.add('ladder-end');
-            } else if (snakes.hasOwnProperty(i)) {
-                cell.classList.add('snake-head');
-            } else if (Object.values(snakes).includes(i)) {
-                cell.classList.add('snake-tail');
-            }
-            board.appendChild(cell);
-        }
+    spongebob_img = pygame.image.load(os.path.join(asset_folder, 'spongebob.png')).convert_alpha()
+    spongebob_img = pygame.transform.scale(spongebob_img, (SQUARE_SIZE // 2 + 5, SQUARE_SIZE // 2 + 5)) # أكبر قليلاً
 
-        const cells = document.querySelectorAll('.cell');
+    # صورة النرد
+    dice_img_default = pygame.image.load(os.path.join(asset_folder, 'dice_default.png')).convert_alpha()
+    dice_img_default = pygame.transform.scale(dice_img_default, (80, 80))
 
-        function updatePlayerPosition(player, position) {
-            const playerElement = document.createElement('div');
-            playerElement.classList.add('player');
-            playerElement.innerHTML = `<img src="${player === 1 ? 'frog.png' : 'monkey.png'}" alt="${player === 1 ? 'Frog' : 'Monkey'}">`;
+    # الأصوات
+    dice_sound = pygame.mixer.Sound(os.path.join(asset_folder, 'dice_roll.wav'))
+    ladder_sound = pygame.mixer.Sound(os.path.join(asset_folder, 'ladder_climb.wav'))
+    snake_sound = pygame.mixer.Sound(os.path.join(asset_folder, 'snake_slide.wav'))
+    win_sound = pygame.mixer.Sound(os.path.join(asset_folder, 'win_game.wav'))
 
-            const previousCell = cells[boardSize - (player === 1 ? player1Position : player2Position)];
-            previousCell.innerHTML = previousCell.textContent;
+except pygame.error as e:
+    print(f"خطأ فادح في تحميل الموارد: {e}")
+    print("*"*30)
+    print("!!! تأكد من وجود مجلد باسم 'assets' في نفس مكان ملف اللعبة !!!")
+    print("!!! وتأكد من وجود الملفات التالية بداخله بالأسماء الصحيحة: !!!")
+    print("board.png, frog.png, spongebob.png, dice_default.png")
+    print("dice_roll.wav, ladder_climb.wav, snake_slide.wav, win_game.wav")
+    print("*"*30)
+    pygame.quit()
+    sys.exit()
 
-            const currentCell = cells[boardSize - position];
-            currentCell.innerHTML = '';
-            currentCell.appendChild(playerElement);
+# --- إعدادات اللعبة والمتغيرات ---
+clock = pygame.time.Clock()
+# محاولة استخدام خط عربي أفضل إذا كان متاحاً، وإلا استخدام خط احتياطي
+try:
+    font = pygame.font.SysFont('tahoma', 32) # خط يدعم العربية بشكل أفضل
+    small_font = pygame.font.SysFont('tahoma', 22)
+except:
+    print("خط 'Tahoma' غير موجود، سيتم استخدام الخط الافتراضي 'Arial'.")
+    font = pygame.font.SysFont('arial', 30)
+    small_font = pygame.font.SysFont('arial', 20)
 
-            if (player === 1) {
-                player1PositionDisplay.textContent = position;
-            } else {
-                player2PositionDisplay.textContent = position;
-            }
-        }
 
-        updatePlayerPosition(1, player1Position);
-        updatePlayerPosition(2, player2Position);
+# تعريف أماكن السلالم والثعابين (من مربع البداية إلى مربع النهاية)
+# يمكنك تعديل هذه القيم لتناسب لوحة اللعب الخاصة بك
+ladders = {3: 21, 8: 30, 28: 84, 58: 77, 75: 86, 80: 100, 90: 91}
+snakes = {17: 13, 52: 29, 57: 40, 62: 22, 88: 18, 95: 51, 97: 79}
 
-        dice.addEventListener('click', () => {
-            const roll = Math.floor(Math.random() * 6) + 1;
-            resultDisplay.textContent = `Player ${currentPlayer} rolled: ${roll}`;
-            diceRollSound.play();
+# مواقع اللاعبين (تبدأ من 0، خارج اللوحة)
+player_positions = {'مالك': 0, 'علي': 0}
+player_pieces = {'مالك': frog_img, 'علي': spongebob_img}
+player_colors = {'مالك': GREEN, 'علي': YELLOW} # تم تغيير لون علي للأصفر لتمييز أفضل مع سبونج بوب
+players = list(player_positions.keys())
+current_player_index = 0
+current_player_name = players[current_player_index]
 
-            let newPosition;
-            if (currentPlayer === 1) {
-                newPosition = player1Position + roll;
-                if (newPosition <= boardSize) {
-                    player1Position = newPosition;
-                }
-                // التعامل مع السلالم
-                if (ladders[player1Position]) {
-                    const previousPosition = player1Position;
-                    player1Position = ladders[player1Position];
-                    resultDisplay.textContent += `\nMalik found a ladder from ${previousPosition} to ${player1Position}!`;
-                    // يمكنك إضافة صوت لتسلق السلم هنا: new Audio('ladder_climb.mp3').play();
-                }
-                // التعامل مع الثعابين
-                else if (snakes[player1Position]) {
-                    const previousPosition = player1Position;
-                    player1Position = snakes[player1Position];
-                    resultDisplay.textContent += `\nMalik slid down a snake from ${previousPosition} to ${player1Position}!`;
-                    // يمكنك إضافة صوت للانزلاق على الثعبان هنا: new Audio('snake_slide.mp3').play();
-                }
-                updatePlayerPosition(1, player1Position);
-                currentPlayer = 2;
-            } else {
-                newPosition = player2Position + roll;
-                if (newPosition <= boardSize) {
-                    player2Position = newPosition;
-                }
-                // التعامل مع السلالم
-                if (ladders[player2Position]) {
-                    const previousPosition = player2Position;
-                    player2Position = ladders[player2Position];
-                    resultDisplay.textContent += `\nAli found a ladder from ${previousPosition} to ${player2Position}!`;
-                    // يمكنك إضافة صوت لتسلق السلم هنا: new Audio('ladder_climb.mp3').play();
-                }
-                // التعامل مع الثعابين
-                else if (snakes[player2Position]) {
-                    const previousPosition = player2Position;
-                    player2Position = snakes[player2Position];
-                    resultDisplay.textContent += `\nAli slid down a snake from ${previousPosition} to ${player2Position}!`;
-                    // يمكنك إضافة صوت للانزلاق على الثعبان هنا: new Audio('snake_slide.mp3').play();
-                }
-                updatePlayerPosition(2, player2Position);
-                currentPlayer = 1;
-            }
+dice_roll = 0
+game_over = False
+winner = None
+message = f"دور اللاعب: {current_player_name}. اضغط على النرد للرمي."
+last_action_message = "" # رسالة منفصلة لآخر حدث (سلم/ثعبان)
 
-            // التحقق من الفوز
-            if (player1Position === boardSize) {
-                resultDisplay.textContent = "Malik Wins!";
-                dice.removeEventListener('click', arguments.callee); // إيقاف النرد
-            } else if (player2Position === boardSize) {
-                resultDisplay.textContent = "Ali Wins!";
-                dice.removeEventListener('click', arguments.callee); // إيقاف النرد
-            }
-        });
-    </script>
-</body>
-</html>
+# منطقة النرد (لتحديد مكان الضغط)
+dice_rect = pygame.Rect(SCREEN_WIDTH - 160, SCREEN_HEIGHT - 140, 100, 100)
+
+# --- وظائف مساعدة ---
+
+# تحويل رقم المربع (1-100) إلى إحداثيات (x, y) على الشاشة
+def get_coords(square):
+    if square <= 0: # خارج اللوحة أو في البداية
+        # وضع القطع خارج اللوحة بشكل مرتب في البداية
+        if current_player_name == 'مالك' and player_positions['مالك'] == 0:
+            return (SQUARE_SIZE // 2, SCREEN_HEIGHT - SQUARE_SIZE // 2)
+        elif current_player_name == 'علي' and player_positions['علي'] == 0:
+             return (BOARD_SIZE - SQUARE_SIZE // 2, SCREEN_HEIGHT - SQUARE_SIZE // 2)
+        else: # إذا كان لاعب آخر في المربع 0 أثناء اللعب (غير محتمل لكن احتياطاً)
+            return (-SQUARE_SIZE, -SQUARE_SIZE)
+
+    row = (square - 1) // 10
+    col = (square - 1) % 10
+
+    # الصفوف الزوجية (0, 2, ..) تتحرك من اليسار لليمين، والفردية (1, 3, ..) من اليمين لليسار
+    if row % 2 != 0:
+        col = 9 - col # عكس العمود للصفوف الفردية
+
+    x = col * SQUARE_SIZE
+    y = (9 - row) * SQUARE_SIZE # Y يبدأ من الأعلى (مربع 100) للأسفل (مربع 1)
+    # إضافة إزاحة بسيطة لتوسيط القطع داخل المربع
+    center_x = x + SQUARE_SIZE // 2
+    center_y = y + SQUARE_SIZE // 2
+    return center_x, center_y
+
+# --- وظائف الرسم ---
+
+def draw_board():
+    screen.blit(board_img, (0, 0))
+    # يمكن إضافة رسم أرقام المربعات هنا إذا لم تكن واضحة جداً في الصورة
+    # for i in range(1, 101):
+    #     x, y = get_coords(i)
+    #     # تعديل للحصول على الركن العلوي الأيسر للمربع
+    #     sq_x = (x - SQUARE_SIZE // 2)
+    #     sq_y = (y - SQUARE_SIZE // 2)
+    #     num_text = small_font.render(str(i), True, BLACK)
+    #     screen.blit(num_text, (sq_x + 5, sq_y + 5)) # إضافة رقم في الزاوية
+
+def draw_pieces():
+    offset_x = SQUARE_SIZE // 5 # إزاحة أفقية أكبر لمنع تطابق القطع
+    offset_y = SQUARE_SIZE // 6 # إزاحة رأسية بسيطة
+
+    for player_name in players:
+        pos = player_positions[player_name]
+        piece_img = player_pieces[player_name]
+        x, y = get_coords(pos)
+
+        # تحديد الإزاحة بناءً على اسم اللاعب لتجنب التداخل الكامل
+        current_offset_x = -offset_x if player_name == 'مالك' else offset_x
+
+        # إذا كان اللاعبان في نفس المربع (وليس المربع 0)
+        if pos != 0 and player_positions['مالك'] == player_positions['علي']:
+             draw_x = x - piece_img.get_width() // 2 + current_offset_x
+             draw_y = y - piece_img.get_height() // 2
+        else: # إذا كان اللاعب في مربع لوحده أو في البداية (المربع 0)
+             draw_x = x - piece_img.get_width() // 2
+             draw_y = y - piece_img.get_height() // 2
+
+        screen.blit(piece_img, (draw_x, draw_y))
+
+
+def draw_ui():
+    # منطقة خلفية لواجهة المستخدم
+    ui_rect = pygame.Rect(0, BOARD_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT - BOARD_SIZE)
+    pygame.draw.rect(screen, LIGHT_BLUE, ui_rect)
+    ui_border = pygame.Rect(0, BOARD_SIZE, SCREEN_WIDTH, 5)
+    pygame.draw.rect(screen, BLACK, ui_border)
+
+    # رسم النرد (دائماً الصورة الافتراضية)
+    dice_display_rect = dice_img_default.get_rect(center=dice_rect.center)
+    screen.blit(dice_img_default, dice_display_rect)
+
+    # عرض رقم النرد الأخير بوضوح
+    if dice_roll > 0:
+        dice_text = font.render(f"{dice_roll}", True, BLACK)
+        # وضع النص تحت النرد
+        dice_text_rect = dice_text.get_rect(center=(dice_rect.centerx, dice_rect.bottom + 20))
+        screen.blit(dice_text, dice_text_rect)
+
+    # عرض رسالة الدور والحدث الأخير
+    current_player_color = player_colors[current_player_name]
+    turn_msg_render = font.render(message, True, current_player_color, LIGHT_BLUE) # خلفية لتجنب تداخل النص
+    turn_msg_rect = turn_msg_render.get_rect(midtop=(SCREEN_WIDTH // 2 - 100, BOARD_SIZE + 15))
+    screen.blit(turn_msg_render, turn_msg_rect)
+
+    if last_action_message:
+        action_msg_render = small_font.render(last_action_message, True, BLACK, LIGHT_BLUE)
+        action_msg_rect = action_msg_render.get_rect(midtop=(SCREEN_WIDTH // 2 - 100, turn_msg_rect.bottom + 10))
+        screen.blit(action_msg_render, action_msg_rect)
+
+    # عرض مواقع اللاعبين
+    malik_score_text = small_font.render(f"مالك (ضفدع): مربع {player_positions['مالك']}", True, player_colors['مالك'])
+    ali_score_text = small_font.render(f"علي (سبونج بوب): مربع {player_positions['علي']}", True, player_colors['علي'])
+    screen.blit(malik_score_text, (30, BOARD_SIZE + 20))
+    screen.blit(ali_score_text, (30, BOARD_SIZE + 50))
+
+    # رسالة الفوز أو شاشة البداية
+    if game_over:
+        # شاشة نهاية اللعبة
+        overlay = pygame.Surface((BOARD_SIZE, BOARD_SIZE), pygame.SRCALPHA) # سطح شبه شفاف
+        overlay.fill((200, 200, 200, 180)) # لون رمادي شبه شفاف
+        screen.blit(overlay, (0,0))
+
+        win_text = font.render(f"!!! تهانينا !!!", True, RED)
+        win_rect = win_text.get_rect(center=(BOARD_SIZE // 2, BOARD_SIZE // 2 - 60))
+        screen.blit(win_text, win_rect)
+
+        winner_text = font.render(f"اللاعب {winner} فاز باللعبة!", True, player_colors[winner])
+        winner_rect = winner_text.get_rect(center=(BOARD_SIZE // 2, BOARD_SIZE // 2 - 10))
+        screen.blit(winner_text, winner_rect)
+
+        restart_text = small_font.render("اضغط R لإعادة اللعب أو Q للخروج", True, BLACK)
+        restart_rect = restart_text.get_rect(center=(BOARD_SIZE // 2, BOARD_SIZE // 2 + 40))
+        screen.blit(restart_text, restart_rect)
+
+
+# --- منطق اللعبة ---
+
+def roll_dice_action():
+    global dice_roll, message, last_action_message, current_player_index, current_player_name
+    if game_over or action_pending: return # لا تفعل شيئاً إذا انتهت اللعبة أو كان هناك حركة قيد الانتظار
+
+    dice_roll = random.randint(1, 6)
+    dice_sound.play() # تشغيل صوت النرد
+    message = f"{current_player_name} رمى النرد: {dice_roll}"
+    last_action_message = "" # مسح رسالة الحدث السابق عند الرمي
+    pygame.event.post(pygame.event.Event(pygame.USEREVENT + 1)) # إرسال حدث لبدء التحريك فوراً
+
+
+def move_player():
+    global player_positions, current_player_index, current_player_name, game_over, winner, message, last_action_message, dice_roll, action_pending
+
+    current_pos = player_positions[current_player_name]
+    new_pos = current_pos + dice_roll
+    landed_on = new_pos # لتتبع المربع الأصلي قبل السلم/الثعبان
+
+    # التحقق من تجاوز المربع 100
+    if new_pos > 100:
+        new_pos = current_pos # يبقى في مكانه
+        last_action_message = f"تحتاج {100 - current_pos} بالضبط للفوز! ابق مكانك."
+    elif new_pos == 100:
+        player_positions[current_player_name] = 100
+        game_over = True
+        winner = current_player_name
+        message = f"اللاعب {winner} وصل إلى النهاية!"
+        last_action_message = "🎉🎉🎉 فـــــــــــــاز 🎉🎉🎉"
+        win_sound.play() # تشغيل صوت الفوز
+        dice_roll = 0 # إيقاف عرض رقم النرد عند الفوز
+        return # إنهاء الحركة عند الفوز
+    else:
+         player_positions[current_player_name] = new_pos
+         last_action_message = f"انتقل إلى المربع {new_pos}."
+
+         # التحقق من السلالم
+         if new_pos in ladders:
+             destination = ladders[new_pos]
+             player_positions[current_player_name] = destination
+             last_action_message = f"رائع! صعد السلم من {new_pos} إلى {destination}!"
+             ladder_sound.play() # تشغيل صوت السلم
+             # التحديث الفوري للرسالة (سيتم رسمها في الإطار التالي)
+
+         # التحقق من الثعابين
+         elif new_pos in snakes:
+             destination = snakes[new_pos]
+             player_positions[current_player_name] = destination
+             last_action_message = f"أوه! لدغه الثعبان من {new_pos} ونزل إلى {destination}!"
+             snake_sound.play() # تشغيل صوت الثعبان
+             # التحديث الفوري للرسالة
+
+    # تغيير دور اللاعب بعد انتهاء الحركة والتحقق من السلم/الثعبان
+    if not game_over:
+        # التأكد من عدم تغيير الدور إذا كانت نفس النتيجة تؤدي لسلم/ثعبان مرة أخرى (غير محتمل هنا)
+        if player_positions[current_player_name] != landed_on:
+            # إذا تحرك بسبب سلم/ثعبان، انتظر قليلاً قبل تغيير الدور
+             pygame.time.set_timer(pygame.USEREVENT + 2, 800) # 800 ميلي ثانية
+        else:
+            # إذا لم يكن هناك سلم/ثعبان، غير الدور فوراً
+            switch_turn()
+
+def switch_turn():
+    """وظيفة منفصلة لتبديل الدور وتحديث الرسالة"""
+    global current_player_index, current_player_name, message, dice_roll, action_pending
+    current_player_index = (current_player_index + 1) % len(players)
+    current_player_name = players[current_player_index]
+    message = f"دور اللاعب: {current_player_name}. اضغط على النرد."
+    # لا نمسح last_action_message هنا ليبقى ظاهراً حتى الرمية التالية
+    dice_roll = 0 # إخفاء رقم النرد السابق استعداداً للدور الجديد
+    action_pending = False # السماح بالرمي مجدداً للاعب التالي
+
+
+def reset_game():
+    global player_positions, current_player_index, current_player_name, dice_roll, game_over, winner, message, last_action_message, action_pending
+    player_positions = {'مالك': 0, 'علي': 0}
+    current_player_index = 0
+    current_player_name = players[current_player_index]
+    dice_roll = 0
+    game_over = False
+    winner = None
+    message = f"دور اللاعب: {current_player_name}. اضغط على النرد للرمي."
+    last_action_message = "تم إعادة بدء اللعبة!"
+    action_pending = False
+    # إلغاء أي مؤقتات نشطة
+    pygame.time.set_timer(pygame.USEREVENT + 1, 0)
+    pygame.time.set_timer(pygame.USEREVENT + 2, 0)
+    # إيقاف أي أصوات قد تكون لا تزال تعمل (احتياطي)
+    pygame.mixer.stop()
+
+
+# --- حلقة اللعبة الرئيسية ---
+running = True
+action_pending = False # متغير لمنع النقر المتعدد أثناء حركة القطعة
+
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+        # --- التعامل مع المدخلات ---
+        if not game_over:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # التحقق من الضغط على النرد (فقط إذا لم يكن هناك حركة قيد التنفيذ)
+                if dice_rect.collidepoint(event.pos) and not action_pending:
+                    action_pending = True # منع النقر مرة أخرى فوراً
+                    roll_dice_action() # رمي النرد وبدء عملية الحركة
+
+            # حدث مخصص لبدء تحريك اللاعب (يتم إرساله من roll_dice_action)
+            if event.type == pygame.USEREVENT + 1:
+                move_player()
+                # إذا لم تنته اللعبة ولم يكن هناك سلم/ثعبان (حيث يتم تأخير تغيير الدور)، غير الدور الآن
+                if not game_over and player_positions[current_player_name] == current_pos + dice_roll:
+                     switch_turn()
+
+
+            # حدث مخصص لتغيير الدور بعد تأخير (بسبب سلم/ثعبان)
+            if event.type == pygame.USEREVENT + 2:
+                 pygame.time.set_timer(pygame.USEREVENT + 2, 0) # إيقاف المؤقت
+                 switch_turn() # الآن غير الدور
+
+        # --- التعامل مع المدخلات بعد انتهاء اللعبة ---
+        else: # إذا كانت game_over == True
+             if event.type == pygame.KEYDOWN:
+                 if event.key == pygame.K_r: # الضغط على R لإعادة اللعب
+                     reset_game()
+                 if event.key == pygame.K_q: # الضغط على Q للخروج
+                      running = False
+
+    # --- الرسم (يتم دائماً) ---
+    screen.fill(WHITE) # مسح الشاشة في كل إطار
+    draw_board()
+    draw_pieces()
+    draw_ui() # رسم واجهة المستخدم (بما في ذلك النرد والرسائل وشاشة الفوز إذا game_over)
+
+    # --- تحديث الشاشة ---
+    pygame.display.flip()
+
+    # --- تحديد معدل الإطارات ---
+    clock.tick(30) # 30 إطار في الثانية للحفاظ على سلاسة الأداء
+
+# --- إنهاء Pygame ---
+pygame.quit()
+sys.exit()
